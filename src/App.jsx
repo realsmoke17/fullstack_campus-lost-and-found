@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import './App.css';
 import Navbar from './components/Navbar';
 import Board from './components/Board';
@@ -7,18 +7,24 @@ import PostForm from './components/PostForm';
 import ItemDetail from './components/ItemDetail';
 import LoginForm from './components/LoginForm';
 import VerificationScreen from './components/VerificationScreen';
+import VerifyComplete from './components/VerifyComplete';
 import { subscribeToItems, updateItemStatus, getUserProfile } from './firebase/firestore';
 import { onAuthStateChange, initAuthPersistence } from './firebase/auth';
 
 /**
  * ProtectedRoute wrapper to handle authentication and verification guards.
+ * Stores the attempted path in state for return-to-page logic.
  */
 const ProtectedRoute = ({ children, user }) => {
+  const location = useLocation();
+
   if (!user) {
-    return <Navigate to="/login" replace />;
+    // Not logged in -> redirect to login, save current path
+    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
   if (!user.emailVerified) {
-    return <Navigate to="/verify" replace />;
+    // Logged in but not verified -> redirect to verify, save current path
+    return <Navigate to="/verify" state={{ from: location.pathname }} replace />;
   }
   return children;
 };
@@ -125,6 +131,9 @@ function App() {
                 user && !user.emailVerified ? <VerificationScreen user={user} /> : <Navigate to="/board" replace />
               }
             />
+
+            {/* Public Route: Verification Success Handler */}
+            <Route path="/verify-complete" element={<VerifyComplete />} />
 
             {/* Protected Routes: Require Auth and Verification */}
             <Route
