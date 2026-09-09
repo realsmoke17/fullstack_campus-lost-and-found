@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { addItem } from '../firebase/firestore';
+import CameraCapture from './CameraCapture';
 
 const PostForm = ({ user, userProfile, onPostItem, onBack }) => {
   const useStates = {
@@ -14,6 +15,7 @@ const PostForm = ({ user, userProfile, onPostItem, onBack }) => {
   const [formData, setFormData] = useState(useStates);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -109,130 +111,145 @@ const PostForm = ({ user, userProfile, onPostItem, onBack }) => {
   const categories = ['Electronics', 'Keys', 'Bags', 'ID/Cards', 'Other'];
 
   return (
-    <div className="container">
-      <header className="header">
-        <h1>Post a New Item</h1>
-        <p>Let the campus community know what's missing or found!</p>
-      </header>
-
-      <div className="form-container">
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Item Title</label>
-            <input
-              type="text"
-              name="title"
-              className="form-input"
-              required
-              value={formData.title}
-              onChange={handleChange}
-              placeholder="e.g. Blue Water Bottle"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Category</label>
-            <select
-              name="category"
-              className="form-select"
-              value={formData.category}
-              onChange={handleChange}
-            >
-              {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Status</label>
-            <div className="toggle-group" style={{ width: 'fit-content' }}>
+    <>
+      <div className="container">
+        <header className="header">
+          <h1>Post a New Item</h1>
+          <p>Let the campus community know what's missing or found!</p>
+        </header>
+        <div className="form-container">
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label>Item Title</label>
+              <input
+                type="text"
+                name="title"
+                className="form-input"
+                required
+                value={formData.title}
+                onChange={handleChange}
+                placeholder="e.g. Blue Water Bottle"
+              />
+            </div>
+            <div className="form-group">
+              <label>Category</label>
+              <select
+                name="category"
+                className="form-select"
+                value={formData.category}
+                onChange={handleChange}
+              >
+                {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Status</label>
+              <div className="toggle-group" style={{ width: 'fit-content' }}>
+                <button
+                  type="button"
+                  className={`toggle-btn ${formData.status === 'lost' ? 'active' : ''}`}
+                  onClick={() => setFormData(prev => ({ ...prev, status: 'lost' }))}
+                >
+                  Lost
+                </button>
+                <button
+                  type="button"
+                  className={`toggle-btn ${formData.status === 'found' ? 'active' : ''}`}
+                  onClick={() => setFormData(prev => ({ ...prev, status: 'found' }))}
+                >
+                  Found
+                </button>
+              </div>
+            </div>
+            <div className="form-group">
+              <label>Description</label>
+              <textarea
+                name="description"
+                className="form-textarea"
+                rows="4"
+                required
+                value={formData.description}
+                onChange={handleChange}
+                placeholder="Describe the item in detail..."
+              ></textarea>
+            </div>
+            <div className="form-group">
+              <label>Location</label>
+              <input
+                type="text"
+                name="location"
+                className="form-input"
+                required
+                value={formData.location}
+                onChange={handleChange}
+                placeholder="e.g. Student Union, 2nd floor"
+              />
+            </div>
+            <div className="form-group">
+              <label>Date</label>
+              <input
+                type="date"
+                name="date"
+                className="form-input"
+                required
+                value={formData.date}
+                onChange={handleChange}
+              />
+            </div>
+            <div className="form-group">
+              <label>Photo</label>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setIsCameraOpen(true)}
+                >
+                  Take Photo
+                </button>
+                <label className="btn btn-secondary" style={{ cursor: 'pointer', display: 'inline-block', textAlign: 'center' }}>
+                  Upload from Gallery
+                  <input
+                    type="file"
+                    style={{ display: 'none' }}
+                    accept="image/*"
+                    onChange={handleFileChange}
+                  />
+                </label>
+              </div>
+              <p style={{ fontSize: '0.8rem', color: '#7f8c8d', marginTop: '5px' }}>
+                Upload a clear photo to help others identify the item.
+              </p>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '30px' }}>
               <button
                 type="button"
-                className={`toggle-btn ${formData.status === 'lost' ? 'active' : ''}`}
-                onClick={() => setFormData(prev => ({ ...prev, status: 'lost' }))}
+                className="btn btn-secondary"
+                onClick={onBack}
+                disabled={isSubmitting}
               >
-                Lost
+                Cancel
               </button>
               <button
-                type="button"
-                className={`toggle-btn ${formData.status === 'found' ? 'active' : ''}`}
-                onClick={() => setFormData(prev => ({ ...prev, status: 'found' }))}
+                type="submit"
+                className="btn btn-primary"
+                disabled={isSubmitting}
               >
-                Found
+                {isSubmitting ? 'Posting...' : 'Post Item 🚀'}
               </button>
             </div>
-          </div>
-
-          <div className="form-group">
-            <label>Description</label>
-            <textarea
-              name="description"
-              className="form-textarea"
-              rows="4"
-              required
-              value={formData.description}
-              onChange={handleChange}
-              placeholder="Describe the item in detail..."
-            ></textarea>
-          </div>
-
-          <div className="form-group">
-            <label>Location</label>
-            <input
-              type="text"
-              name="location"
-              className="form-input"
-              required
-              value={formData.location}
-              onChange={handleChange}
-              placeholder="e.g. Student Union, 2nd floor"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Date</label>
-            <input
-              type="date"
-              name="date"
-              className="form-input"
-              required
-              value={formData.date}
-              onChange={handleChange}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Photo</label>
-            <input
-              type="file"
-              className="form-input"
-              accept="image/*"
-              onChange={handleFileChange}
-            />
-            <p style={{ fontSize: '0.8rem', color: '#7f8c8d', marginTop: '5px' }}>
-              Upload a clear photo to help others identify the item.
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '30px' }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={onBack}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Posting...' : 'Post Item 🚀'}
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+      {isCameraOpen && (
+        <CameraCapture
+          onCapture={(file) => {
+            setSelectedFile(file);
+            setIsCameraOpen(false);
+          }}
+          onClose={() => setIsCameraOpen(false)}
+        />
+      )}
+    </>
   );
 };
 
