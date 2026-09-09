@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import './App.css';
 import Navbar from './components/Navbar';
 import Board from './components/Board';
@@ -34,6 +34,7 @@ const ProtectedRoute = ({ children, user }) => {
  */
 const ItemDetailWrapper = ({ items, currentUser, onMarkResolved }) => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const item = items.find(i => i.id === id);
 
   if (!item) {
@@ -45,7 +46,7 @@ const ItemDetailWrapper = ({ items, currentUser, onMarkResolved }) => {
       item={item}
       currentUser={currentUser}
       onMarkResolved={onMarkResolved}
-      onBack={() => {}} // Navbar handles navigation
+      onBack={() => navigate('/board')} // Navigate back to board
     />
   );
 };
@@ -142,7 +143,6 @@ function App() {
                 <ProtectedRoute user={user}>
                   <Board
                     items={items.filter(i => i.status !== 'resolved')}
-                    onSelectItem={() => {}} // handled by routing now
                   />
                 </ProtectedRoute>
               }

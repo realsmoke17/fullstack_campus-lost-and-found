@@ -7,7 +7,7 @@ const LoginForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
+  const [studentNumber, setStudentNumber] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,9 +29,9 @@ const LoginForm = () => {
 
     try {
       if (isLogin) {
-        await logIn(email, password);
+        await logIn(studentNumber, password);
       } else {
-        await signUp(email, password, username);
+        await signUp(studentNumber, password, username);
         alert('Account created! Please check your TUT4life email to verify your account.');
       }
 
@@ -48,13 +48,13 @@ const LoginForm = () => {
 
   const handleForgotPassword = async (e) => {
     e.preventDefault();
-    if (!email) {
-      setError('Please enter your email address first.');
+    if (!studentNumber) {
+      setError('Please enter your student number first.');
       return;
     }
     setLoading(true);
     try {
-      await resetPassword(email);
+      await resetPassword(studentNumber);
       alert('Password reset email sent! Please check your inbox.');
     } catch (err) {
       setError('Failed to send reset email. Please try again.');
@@ -142,14 +142,14 @@ const LoginForm = () => {
           )}
 
           <div className="form-group" style={{ textAlign: 'left' }}>
-            <label>Email Address</label>
+            <label>Student Number</label>
             <input
-              type="email"
+              type="text"
               className="form-input"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="student@tut4life.ac.za"
+              value={studentNumber}
+              onChange={(e) => setStudentNumber(e.target.value)}
+              placeholder="1234567"
             />
           </div>
 
