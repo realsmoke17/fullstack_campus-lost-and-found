@@ -1,8 +1,53 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { addItem } from '../firebase/firestore';
 import CameraCapture from './CameraCapture';
+import { useAuth } from '../context/AuthContext';
 
-const PostForm = ({ user, userProfile, onPostItem, onBack }) => {
+const compressImage = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > 1200) {
+          height = Math.round((height * 1200) / width);
+          width = 1200;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name || 'image.jpg', {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          } else {
+            resolve(file);
+          }
+        }, 'image/jpeg', 0.8);
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+};
+
+const PostForm = () => {
+  const { user, userProfile } = useAuth();
+  const navigate = useNavigate();
+
   const useStates = {
     title: '',
     category: 'Electronics',
@@ -14,13 +59,24 @@ const PostForm = ({ user, userProfile, onPostItem, onBack }) => {
 
   const [formData, setFormData] = useState(useStates);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  useEffect(() => {
+    if (selectedFile) {
+      const url = URL.createObjectURL(selectedFile);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setPreviewUrl(null);
+    }
+  }, [selectedFile]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // 1. Check if user is logged in and email is verified
     if (!user) {
       alert("You must be logged in to post an item.");
       return;
@@ -32,18 +88,20 @@ const PostForm = ({ user, userProfile, onPostItem, onBack }) => {
     }
 
     setIsSubmitting(true);
+    setSuccessMessage('');
 
     try {
       let photoURL = `https://via.placeholder.com/150?text=No+Image`;
 
-      // 2. Upload photo to Cloudinary if selected
       if (selectedFile) {
         try {
+          const compressedFile = await compressImage(selectedFile);
+          
           const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
           const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
           const formDataCloudinary = new FormData();
-          formDataCloudinary.append('file', selectedFile);
+          formDataCloudinary.append('file', compressedFile);
           formDataCloudinary.append('upload_preset', uploadPreset);
 
           const response = await fetch(
@@ -61,38 +119,34 @@ const PostForm = ({ user, userProfile, onPostItem, onBack }) => {
           const data = await response.json();
           photoURL = data.secure_url;
         } catch (uploadError) {
-          // Failure Case 1: Cloudinary upload fails
           console.error("Cloudinary Error:", uploadError);
           alert("Photo upload failed. Please check your image or try again later.");
           setIsSubmitting(false);
-          return; // STOP: Do NOT write to Firestore if upload fails
+          return;
         }
       }
 
-      // 3. Prepare item data
       const newItemData = {
         ...formData,
         image: photoURL,
-        poster: userProfile?.studentNumber || 'Unknown Student',
+        postedByStudentNumber: userProfile?.studentNumber || 'Unknown Student',
       };
 
-      // 4. Save to Firestore with user profile ownership
       try {
         await addItem(newItemData, userProfile);
+        setSuccessMessage('Item posted successfully!');
+        setTimeout(() => {
+          navigate('/board');
+        }, 1500);
       } catch (firestoreError) {
-        // Failure Case 2: Firestore write fails after successful upload
         console.error("Firestore Error:", firestoreError);
         alert("Item details could not be saved. Your photo was uploaded, but the record failed.");
         setIsSubmitting(false);
         return;
       }
-
-      // 5. Success: notify parent to refresh and navigate back
-      onPostItem();
     } catch (generalError) {
       console.error("General Error:", generalError);
       alert("An unexpected error occurred. Please try again.");
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -117,6 +171,13 @@ const PostForm = ({ user, userProfile, onPostItem, onBack }) => {
           <h1>Post a New Item</h1>
           <p>Let the campus community know what's missing or found!</p>
         </header>
+        
+        {successMessage && (
+          <div className="status-message status-message--success" style={{ marginBottom: '20px' }}>
+            {successMessage}
+          </div>
+        )}
+
         <div className="form-container">
           <form onSubmit={handleSubmit}>
             <div className="form-group">
@@ -144,7 +205,7 @@ const PostForm = ({ user, userProfile, onPostItem, onBack }) => {
             </div>
             <div className="form-group">
               <label>Status</label>
-              <div className="toggle-group" style={{ width: 'fit-content' }}>
+              <div className="toggle-group toggle-group--fit">
                 <button
                   type="button"
                   className={`toggle-btn ${formData.status === 'lost' ? 'active' : ''}`}
@@ -198,33 +259,49 @@ const PostForm = ({ user, userProfile, onPostItem, onBack }) => {
             </div>
             <div className="form-group">
               <label>Photo</label>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setIsCameraOpen(true)}
-                >
-                  Take Photo
-                </button>
-                <label className="btn btn-secondary" style={{ cursor: 'pointer', display: 'inline-block', textAlign: 'center' }}>
-                  Upload from Gallery
-                  <input
-                    type="file"
-                    style={{ display: 'none' }}
-                    accept="image/*"
-                    onChange={handleFileChange}
-                  />
-                </label>
-              </div>
-              <p style={{ fontSize: '0.8rem', color: '#7f8c8d', marginTop: '5px' }}>
+              
+              {previewUrl && (
+                <div className="image-preview">
+                  <img src={previewUrl} alt="Preview" className="image-preview__img" />
+                  <button 
+                    type="button" 
+                    className="image-preview__remove"
+                    onClick={() => setSelectedFile(null)}
+                    aria-label="Remove photo"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {!previewUrl && (
+                <div className="photo-actions">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setIsCameraOpen(true)}
+                  >
+                    Take Photo
+                  </button>
+                  <label className="btn btn-secondary upload-label">
+                    Upload from Gallery
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                    />
+                  </label>
+                </div>
+              )}
+              <p className="form-hint">
                 Upload a clear photo to help others identify the item.
               </p>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '30px' }}>
+            <div className="form-actions">
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={onBack}
+                onClick={() => navigate('/board')}
                 disabled={isSubmitting}
               >
                 Cancel

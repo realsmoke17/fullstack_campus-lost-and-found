@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { sendEmailVerification } from 'firebase/auth';
 import { auth } from '../firebase/firebaseConfig';
+import { useAuth } from '../context/AuthContext';
 
-const VerificationScreen = ({ user }) => {
+const VerificationScreen = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -23,30 +25,21 @@ const VerificationScreen = ({ user }) => {
   return (
     <div className="container">
       <div className="auth-container" style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: '3rem', marginBottom: '20px' }}>📧</div>
+        <div className="emoji-icon">📧</div>
         <h2>Verify Your Email</h2>
-        <p style={{ color: '#7f8c8d', marginBottom: '30px' }}>
+        <p className="auth-page__subtitle">
           We've sent a verification link to <strong>{user?.email}</strong>.<br />
           Please click the link in the email to activate your account and start using the board.
         </p>
 
         {message && (
-          <div style={{
-            padding: '10px',
-            borderRadius: '5px',
-            marginBottom: '20px',
-            fontSize: '0.9rem',
-            backgroundColor: message.includes('Failed') ? '#fdecea' : '#e8f5e9',
-            color: message.includes('Failed') ? '#d32f2f' : '#2e7d32',
-            border: `1px solid ${message.includes('Failed') ? '#ef9a9a' : '#c8e6c9'}`
-          }}>
+          <div className={`status-message ${message.includes('Failed') ? 'status-message--error' : 'status-message--success'}`}>
             {message}
           </div>
         )}
 
         <button
-          className="btn btn-primary"
-          style={{ width: '100%', maxWidth: '300px' }}
+          className="btn btn-primary btn--full-width"
           onClick={handleResendVerification}
           disabled={loading}
         >

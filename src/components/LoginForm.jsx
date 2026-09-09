@@ -13,6 +13,7 @@ const LoginForm = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [stats, setStats] = useState(null);
+  const [studentNumError, setStudentNumError] = useState('');
 
   useEffect(() => {
     const fetchTeaserStats = async () => {
@@ -22,9 +23,40 @@ const LoginForm = () => {
     fetchTeaserStats();
   }, []);
 
+  const handleStudentNumberChange = (e) => {
+    const val = e.target.value;
+    setStudentNumber(val);
+    if (val && val.length < 5) {
+      setStudentNumError('Student number must be at least 5 digits.');
+    } else {
+      setStudentNumError('');
+    }
+  };
+
+  const getPasswordStrength = (pass) => {
+    if (!pass) return '';
+    let strength = 0;
+    if (pass.length >= 6) strength++;
+    if (/[A-Z]/.test(pass)) strength++;
+    if (/[0-9]/.test(pass)) strength++;
+
+    if (strength === 1) return 'weak';
+    if (strength === 2) return 'medium';
+    if (strength === 3) return 'strong';
+    return 'weak';
+  };
+
+  const passwordStrength = !isLogin ? getPasswordStrength(password) : '';
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    
+    if (studentNumber.length < 5) {
+      setError('Student number must be at least 5 digits.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -35,7 +67,6 @@ const LoginForm = () => {
         alert('Account created! Please check your TUT4life email to verify your account.');
       }
 
-      // Respect return-to path or default to board
       const destination = location.state?.from || '/board';
       navigate(destination, { replace: true });
     } catch (err) {
@@ -68,20 +99,12 @@ const LoginForm = () => {
       <div className="auth-container">
         {/* Public Teaser */}
         {stats && (
-          <div style={{
-            textAlign: 'center',
-            padding: '15px',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '10px',
-            marginBottom: '30px',
-            border: '1px dashed #cbd5e0',
-            color: '#4a5568'
-          }}>
-            <h4 style={{ margin: '0 0 5px 0', color: '#2d3748' }}>Campus Activity</h4>
+          <div className="stats-teaser">
+            <h4 className="stats-teaser__title">Campus Activity</h4>
             <p style={{ margin: 0, fontSize: '0.9rem' }}>
               <strong>{stats.totalItems}</strong> items posted —
-              <span style={{ color: '#e53e3e' }}> {stats.lostCount} lost</span>,
-              <span style={{ color: '#38a169' }}> {stats.foundCount} found</span>
+              <span className="stats-teaser__lost"> {stats.lostCount} lost</span>,
+              <span className="stats-teaser__found"> {stats.foundCount} found</span>
             </p>
           </div>
         )}
@@ -92,6 +115,7 @@ const LoginForm = () => {
             onClick={() => {
               setIsLogin(true);
               setError('');
+              setStudentNumError('');
             }}
           >
             Log In
@@ -101,6 +125,7 @@ const LoginForm = () => {
             onClick={() => {
               setIsLogin(false);
               setError('');
+              setStudentNumError('');
             }}
           >
             Sign Up
@@ -108,20 +133,12 @@ const LoginForm = () => {
         </div>
 
         <h2>{isLogin ? 'Welcome Back!' : 'Create Account'}</h2>
-        <p style={{ color: '#7f8c8d', marginBottom: '30px' }}>
+        <p className="auth-page__subtitle">
           {isLogin ? 'Please enter your details to continue.' : 'Join the community and help find lost items!'}
         </p>
 
         {error && (
-          <div style={{
-            backgroundColor: '#fdecea',
-            color: '#d32f2f',
-            padding: '10px',
-            borderRadius: '5px',
-            marginBottom: '20px',
-            fontSize: '0.9rem',
-            border: '1px solid #ef9a9a'
-          }}>
+          <div className="error-alert">
             {error}
           </div>
         )}
@@ -148,9 +165,12 @@ const LoginForm = () => {
               className="form-input"
               required
               value={studentNumber}
-              onChange={(e) => setStudentNumber(e.target.value)}
+              onChange={handleStudentNumberChange}
               placeholder="1234567"
             />
+            {studentNumError && (
+              <div style={{ color: '#d32f2f', fontSize: '0.8rem', marginTop: '5px' }}>{studentNumError}</div>
+            )}
           </div>
 
           <div className="form-group" style={{ textAlign: 'left' }}>
@@ -163,6 +183,12 @@ const LoginForm = () => {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
             />
+            {!isLogin && password && (
+              <div className="password-strength">
+                <div className={`password-strength__bar password-strength__bar--${passwordStrength}`}></div>
+                <div className="password-strength__text">Strength: {passwordStrength}</div>
+              </div>
+            )}
           </div>
 
           {isLogin && (
@@ -170,14 +196,7 @@ const LoginForm = () => {
               <button
                 type="button"
                 onClick={handleForgotPassword}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#3498db',
-                  cursor: 'pointer',
-                  fontSize: '0.85rem',
-                  textDecoration: 'underline'
-                }}
+                className="forgot-password-link"
               >
                 Forgot password?
               </button>
@@ -188,7 +207,7 @@ const LoginForm = () => {
             type="submit"
             className="btn btn-primary"
             style={{ width: '100%', marginTop: '20px' }}
-            disabled={loading}
+            disabled={loading || !!studentNumError}
           >
             {loading ? 'Processing...' : (isLogin ? 'Log In' : 'Create Account')}
           </button>

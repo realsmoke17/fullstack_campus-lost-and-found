@@ -6,7 +6,7 @@ import { auth } from '../firebase/firebaseConfig';
 const VerifyComplete = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [status, setStatus] = useState('verifying'); // 'verifying', 'success', 'error'
+  const [status, setStatus] = useState('verifying');
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
@@ -21,17 +21,14 @@ const VerifyComplete = () => {
       }
 
       try {
-        // 1. Apply the action code from the email
         await verifyEmailWithCode(oobCode);
 
-        // 2. Refresh the current user to update emailVerified flag
         if (auth.currentUser) {
           await auth.currentUser.reload();
         }
 
         setStatus('success');
 
-        // 3. Redirect to intended page or board
         setTimeout(() => {
           const destination = location.state?.from || '/board';
           navigate(destination, { replace: true });
@@ -51,23 +48,23 @@ const VerifyComplete = () => {
       <div className="auth-container" style={{ textAlign: 'center' }}>
         {status === 'verifying' && (
           <>
-            <div style={{ fontSize: '3rem', marginBottom: '20px' }}>⏳</div>
+            <div className="emoji-icon">⏳</div>
             <h2>Verifying Your Account...</h2>
-            <p>Please wait a moment while we confirm your email.</p>
+            <p className="auth-page__subtitle">Please wait a moment while we confirm your email.</p>
           </>
         )}
         {status === 'success' && (
           <>
-            <div style={{ fontSize: '3rem', marginBottom: '20px' }}>✅</div>
+            <div className="emoji-icon">✅</div>
             <h2>Email Verified!</h2>
-            <p>Your account is now active. Redirecting you to the board...</p>
+            <p className="auth-page__subtitle">Your account is now active. Redirecting you to the board...</p>
           </>
         )}
         {status === 'error' && (
           <>
-            <div style={{ fontSize: '3rem', marginBottom: '20px' }}>❌</div>
+            <div className="emoji-icon">❌</div>
             <h2>Verification Failed</h2>
-            <p style={{ color: '#d32f2f' }}>{errorMsg}</p>
+            <p className="status-message--error">{errorMsg}</p>
             <button
               className="btn btn-primary"
               onClick={() => navigate('/verify')}
