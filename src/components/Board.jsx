@@ -9,8 +9,8 @@ const Board = ({ items }) => {
   const [statusFilter, setStatusFilter] = useState('All');
 
   const filteredItems = items.filter(item => {
-    const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          item.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (item.title?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+                          (item.description?.toLowerCase() || '').includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === 'All' || item.category === categoryFilter;
     const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
     return matchesSearch && matchesCategory && matchesStatus;

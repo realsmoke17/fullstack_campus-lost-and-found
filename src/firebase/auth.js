@@ -84,9 +84,6 @@ export const signUp = async (studentNumber, password, username) => {
     };
     await sendEmailVerification(user, actionCodeSettings);
 
-    // 6. Extract student number (local part of the email)
-    const studentNumber = email.split('@')[0];
-
     // 7. Store student profile in Firestore 'users' collection
     await setDoc(doc(db, "users", user.uid), {
       username: username,
