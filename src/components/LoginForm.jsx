@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { signUp, logIn, resetPassword } from '../firebase/auth';
 import { getBoardStats } from '../firebase/firestore';
 
-const LoginForm = ({ onLogin }) => {
+const LoginForm = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isLogin, setIsLogin] = useState(true);
   const [studentNumber, setStudentNumber] = useState('');
   const [password, setPassword] = useState('');
@@ -31,7 +34,10 @@ const LoginForm = ({ onLogin }) => {
         await signUp(studentNumber, password, username);
         alert('Account created! Please check your TUT4life email to verify your account.');
       }
-      onLogin();
+
+      // Respect return-to path or default to board
+      const destination = location.state?.from || '/board';
+      navigate(destination, { replace: true });
     } catch (err) {
       console.error("Auth error:", err);
       setError(err.message || 'An unexpected error occurred. Please try again.');

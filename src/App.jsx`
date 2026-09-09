@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import './App.css';
 import Navbar from './components/Navbar';
 import Board from './components/Board';
@@ -8,6 +9,8 @@ import ItemDetail from './components/ItemDetail';
 import LoginForm from './components/LoginForm';
 import VerificationScreen from './components/VerificationScreen';
 import VerifyComplete from './components/VerifyComplete';
+import MyItems from './components/MyItems';
+import ItemSkeleton from './components/ItemSkeleton';
 import { subscribeToItems, updateItemStatus, getUserProfile } from './firebase/firestore';
 import { onAuthStateChange, initAuthPersistence } from './firebase/auth';
 
@@ -34,7 +37,6 @@ const ProtectedRoute = ({ children, user }) => {
  */
 const ItemDetailWrapper = ({ items, currentUser, onMarkResolved }) => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const item = items.find(i => i.id === id);
 
   if (!item) {
@@ -46,7 +48,7 @@ const ItemDetailWrapper = ({ items, currentUser, onMarkResolved }) => {
       item={item}
       currentUser={currentUser}
       onMarkResolved={onMarkResolved}
-      onBack={() => navigate('/board')} // Navigate back to board
+      onBack={() => {}} // Navbar handles navigation
     />
   );
 };
@@ -97,15 +99,26 @@ function App() {
   const handleMarkResolved = async (itemId) => {
     try {
       await updateItemStatus(itemId, { status: 'resolved' });
+      toast.success("Item marked as resolved!");
     } catch (error) {
-      alert("Failed to update item status. Please try again.");
+      toast.error("Failed to update item status. Please try again.");
     }
   };
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'inherit' }}>
-        <h2>Loading Campus Board...</h2>
+      <div className="app">
+        <Navbar />
+        <main style={{ paddingBottom: '50px' }}>
+          <div className="container">
+            <header className="header">
+              <h1 style={{ opacity: 0.5 }}>Loading Campus Board...</h1>
+            </header>
+            <div className="item-grid">
+              {[...Array(6)].map((_, i) => <ItemSkeleton key={i} />)}
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
@@ -113,6 +126,7 @@ function App() {
   return (
     <BrowserRouter>
       <div className="app">
+        <Toaster position="top-right" />
         <Navbar />
 
         <main style={{ paddingBottom: '50px' }}>
@@ -128,7 +142,7 @@ function App() {
             {/* Public Route: Verification Warning */}
             <Route
               path="/verify"
-              element={
+              element {
                 user && !user.emailVerified ? <VerificationScreen user={user} /> : <Navigate to="/board" replace />
               }
             />
@@ -139,10 +153,11 @@ function App() {
             {/* Protected Routes: Require Auth and Verification */}
             <Route
               path="/board"
-              element={
+              element {
                 <ProtectedRoute user={user}>
                   <Board
                     items={items.filter(i => i.status !== 'resolved')}
+                    onSelectItem={() => {}} // handled by routing now
                   />
                 </ProtectedRoute>
               }
@@ -150,7 +165,7 @@ function App() {
 
             <Route
               path="/post"
-              element={
+              element {
                 <ProtectedRoute user={user}>
                   <PostForm
                     user={user}
@@ -163,8 +178,17 @@ function App() {
             />
 
             <Route
+              path="/my-items"
+              element {
+                <ProtectedRoute user={user}>
+                  <MyItems />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
               path="/item/:id"
-              element={
+              element {
                 <ProtectedRoute user={user}>
                   <ItemDetailWrapper
                     items={items}

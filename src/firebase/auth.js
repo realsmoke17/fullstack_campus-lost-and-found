@@ -6,7 +6,9 @@ import {
   sendEmailVerification,
   setPersistence,
   browserSessionPersistence,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  updateProfile,
+  applyActionCode
 } from "firebase/auth";
 import { auth, db } from "./firebaseConfig";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
@@ -36,9 +38,9 @@ export const initAuthPersistence = async () => {
 
 /**
  * Signs up a new student user.
- * Validates student number and username uniqueness, creates auth account,
+ * Validates TUT email and username uniqueness, creates auth account,
  * sends verification email, and stores the student profile.
- * @param {string} studentNumber
+ * @param {string} email
  * @param {string} password
  * @param {string} username
  * @throws Error if validation fails or Firebase auth fails.
@@ -70,18 +72,27 @@ export const signUp = async (studentNumber, password, username) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // 5. Send email verification
-    await sendEmailVerification(user);
+    // 5. Sync username to Firebase Auth Profile
+    await updateProfile(user, {
+      displayName: username,
+    });
 
-    // 6. Store student profile in Firestore 'users' collection
+    // 6. Send verification email with action code settings to return to app
+    const actionCodeSettings = {
+      url: `${window.location.origin}/verify-complete`,
+      handleCodeInApp: true,
+    };
+    await sendEmailVerification(user, actionCodeSettings);
+
+    // 7. Store student profile in Firestore 'users' collection
     await setDoc(doc(db, "users", user.uid), {
-      username: username, // Store original case for display
+      username: username,
       studentNumber,
       email: email.toLowerCase(),
       createdAt: serverTimestamp(),
     });
 
-    // 7. Reserve the username to prevent duplicates
+    // 8. Reserve the username to prevent duplicates
     await setDoc(doc(db, "usernames", normalizedUsername), {
       uid: user.uid,
       createdAt: serverTimestamp(),
@@ -132,6 +143,19 @@ export const resetPassword = async (studentNumber) => {
     await sendPasswordResetEmail(auth, email);
   } catch (error) {
     console.error("Password reset error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Verifies an email using an action code.
+ * @param {string} oobCode - The out-of-band code from the email link.
+ */
+export const verifyEmailWithCode = async (oobCode) => {
+  try {
+    await applyActionCode(auth, oobCode);
+  } catch (error) {
+    console.error("Error verifying email with code:", error);
     throw error;
   }
 };
