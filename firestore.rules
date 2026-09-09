@@ -11,8 +11,11 @@ service cloud.firestore {
     // This is the only part of the database that is publicly readable
     match /metadata/boardStats {
       allow read: if true;
-      // Only allow updates via trusted logic (e.g. authenticated users creating items)
-      allow write: if request.auth != null;
+      // Only allow updates (not create/delete) by authenticated users
+      // Restrict to only the expected counter fields
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['totalItems', 'lostCount', 'foundCount']);
     }
 
     // USER PROFILES
@@ -25,8 +28,12 @@ service cloud.firestore {
     match /usernames/{username} {
       // Public read allowed to check if a username is taken during signup
       allow read: if true;
-      // Only authenticated users can reserve a username during signup
-      allow write: if request.auth != null;
+      // Only authenticated users can create a username reservation, and it must point to their own UID
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid;
+      // Only the owner of a username reservation can delete it
+      allow delete: if request.auth != null
+        && resource.data.uid == request.auth.uid;
     }
 
     // ITEMS COLLECTION

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
 import './App.css';
 import Navbar from './components/Navbar';
 import Board from './components/Board';
@@ -8,23 +8,26 @@ import ItemDetail from './components/ItemDetail';
 import LoginForm from './components/LoginForm';
 import VerificationScreen from './components/VerificationScreen';
 import VerifyComplete from './components/VerifyComplete';
-import { subscribeToItems, updateItemStatus, getUserProfile } from './firebase/firestore';
-import { onAuthStateChange, initAuthPersistence } from './firebase/auth';
+import MyItems from './components/MyItems';
+import LandingPage from './components/LandingPage';
+import NotFound from './components/NotFound';
+import ItemSkeleton from './components/ItemSkeleton';
+import ErrorBoundary from './components/ErrorBoundary';
+import { useAuth } from './context/AuthContext';
+import { subscribeToItems, updateItemStatus } from './firebase/firestore';
 
 /**
  * ProtectedRoute wrapper to handle authentication and verification guards.
- * Stores the attempted path in state for return-to-page logic.
+ * Uses AuthContext instead of receiving user as a prop.
  */
-const ProtectedRoute = ({ children, user }) => {
-  const location = useLocation();
+const ProtectedRoute = ({ children }) => {
+  const { user } = useAuth();
 
   if (!user) {
-    // Not logged in -> redirect to login, save current path
-    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+    return <Navigate to="/login" replace />;
   }
   if (!user.emailVerified) {
-    // Logged in but not verified -> redirect to verify, save current path
-    return <Navigate to="/verify" state={{ from: location.pathname }} replace />;
+    return <Navigate to="/verify" replace />;
   }
   return children;
 };
@@ -32,7 +35,7 @@ const ProtectedRoute = ({ children, user }) => {
 /**
  * Helper component to resolve item from ID for the Detail view.
  */
-const ItemDetailWrapper = ({ items, currentUser, onMarkResolved }) => {
+const ItemDetailWrapper = ({ items, onMarkResolved }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const item = items.find(i => i.id === id);
@@ -44,53 +47,32 @@ const ItemDetailWrapper = ({ items, currentUser, onMarkResolved }) => {
   return (
     <ItemDetail
       item={item}
-      currentUser={currentUser}
       onMarkResolved={onMarkResolved}
-      onBack={() => navigate('/board')} // Navigate back to board
+      onBack={() => navigate('/board')}
     />
   );
 };
 
 function App() {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
-  const [userProfile, setUserProfile] = useState(null);
+  const { user, loading: authLoading } = useAuth();
+  const [items, setItems] = React.useState([]);
+  const [itemsLoading, setItemsLoading] = React.useState(true);
 
-  useEffect(() => {
-    // 1. Initialize session-only persistence
-    initAuthPersistence();
-
-    // 2. Subscribe to real-time items
+  React.useEffect(() => {
+    // Subscribe to real-time items
     const unsubscribeItems = subscribeToItems(
       (data) => {
         setItems(data);
-        setLoading(false);
+        setItemsLoading(false);
       },
       (error) => {
         console.error("Failed to load real-time items:", error);
-        setLoading(false);
+        setItemsLoading(false);
       }
     );
 
-    // 3. Track authentication state
-    const unsubscribeAuth = onAuthStateChange(async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        try {
-          const profile = await getUserProfile(currentUser.uid);
-          setUserProfile(profile);
-        } catch (error) {
-          console.error("Error loading user profile:", error);
-        }
-      } else {
-        setUserProfile(null);
-      }
-    });
-
     return () => {
       unsubscribeItems();
-      unsubscribeAuth();
     };
   }, []);
 
@@ -102,85 +84,111 @@ function App() {
     }
   };
 
+  const loading = authLoading || itemsLoading;
+
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'inherit' }}>
-        <h2>Loading Campus Board...</h2>
-      </div>
+      <BrowserRouter>
+        <div className="app">
+          <Navbar />
+          <main className="main-content">
+            <div className="container">
+              <header className="header">
+                <h1 className="loading-title">Loading Campus Board...</h1>
+              </header>
+              <div className="item-grid">
+                {[...Array(6)].map((_, i) => <ItemSkeleton key={i} />)}
+              </div>
+            </div>
+          </main>
+        </div>
+      </BrowserRouter>
     );
   }
 
   return (
     <BrowserRouter>
-      <div className="app">
-        <Navbar />
+      <ErrorBoundary>
+        <div className="app">
+          <Navbar />
 
-        <main style={{ paddingBottom: '50px' }}>
-          <Routes>
-            {/* Public Route: Login/Signup */}
-            <Route
-              path="/login"
-              element={
-                !user ? <LoginForm /> : <Navigate to="/board" replace />
-              }
-            />
+          <main className="main-content">
+            <Routes>
+              {/* Public Route: Landing Page */}
+              <Route
+                path="/"
+                element={
+                  user ? <Navigate to="/board" replace /> : <LandingPage />
+                }
+              />
 
-            {/* Public Route: Verification Warning */}
-            <Route
-              path="/verify"
-              element={
-                user && !user.emailVerified ? <VerificationScreen user={user} /> : <Navigate to="/board" replace />
-              }
-            />
+              {/* Public Route: Login/Signup */}
+              <Route
+                path="/login"
+                element={
+                  !user ? <LoginForm /> : <Navigate to="/board" replace />
+                }
+              />
 
-            {/* Public Route: Verification Success Handler */}
-            <Route path="/verify-complete" element={<VerifyComplete />} />
+              {/* Public Route: Verification Warning */}
+              <Route
+                path="/verify"
+                element={
+                  user && !user.emailVerified ? <VerificationScreen /> : <Navigate to="/board" replace />
+                }
+              />
 
-            {/* Protected Routes: Require Auth and Verification */}
-            <Route
-              path="/board"
-              element={
-                <ProtectedRoute user={user}>
-                  <Board
-                    items={items.filter(i => i.status !== 'resolved')}
-                  />
-                </ProtectedRoute>
-              }
-            />
+              {/* Public Route: Verification Success Handler */}
+              <Route path="/verify-complete" element={<VerifyComplete />} />
 
-            <Route
-              path="/post"
-              element={
-                <ProtectedRoute user={user}>
-                  <PostForm
-                    user={user}
-                    userProfile={userProfile}
-                    onPostItem={() => {}} // handled by routing now
-                    onBack={() => {}} // handled by routing now
-                  />
-                </ProtectedRoute>
-              }
-            />
+              {/* Protected Routes: Require Auth and Verification */}
+              <Route
+                path="/board"
+                element={
+                  <ProtectedRoute>
+                    <Board
+                      items={items.filter(i => i.status !== 'resolved')}
+                    />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/item/:id"
-              element={
-                <ProtectedRoute user={user}>
-                  <ItemDetailWrapper
-                    items={items}
-                    currentUser={user}
-                    onMarkResolved={handleMarkResolved}
-                  />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/post"
+                element={
+                  <ProtectedRoute>
+                    <PostForm />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Default Redirect */}
-            <Route path="/" element={<Navigate to="/board" replace />} />
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-        </main>
-      </div>
+              <Route
+                path="/my-items"
+                element={
+                  <ProtectedRoute>
+                    <MyItems />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/item/:id"
+                element={
+                  <ProtectedRoute>
+                    <ItemDetailWrapper
+                      items={items}
+                      onMarkResolved={handleMarkResolved}
+                    />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* 404 Page */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </main>
+        </div>
+      </ErrorBoundary>
     </BrowserRouter>
   );
 }

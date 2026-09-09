@@ -1,10 +1,23 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 
-const ItemDetail = ({ item, currentUser, onMarkResolved, onBack }) => {
+const ItemDetail = ({ item, onMarkResolved, onBack }) => {
+  const { user: currentUser } = useAuth();
+  const [resolving, setResolving] = useState(false);
+
   if (!item) return null;
 
   const isOriginalPoster = currentUser && item.postedByUid === currentUser.uid;
   const isVerified = currentUser && currentUser.emailVerified;
+
+  const handleMarkResolved = async () => {
+    setResolving(true);
+    try {
+      await onMarkResolved(item.id);
+    } finally {
+      setResolving(false);
+    }
+  };
 
   return (
     <div className="container">
@@ -36,7 +49,7 @@ const ItemDetail = ({ item, currentUser, onMarkResolved, onBack }) => {
             </div>
             <div className="meta-item">
               <strong>Posted By</strong>
-              {item.postedByStudentNumber || item.poster || 'Unknown Student'}
+              {item.postedByStudentNumber || 'Unknown Student'}
             </div>
           </div>
 
@@ -45,20 +58,13 @@ const ItemDetail = ({ item, currentUser, onMarkResolved, onBack }) => {
               {isOriginalPoster && isVerified ? (
                 <button
                   className="btn btn-primary"
-                  onClick={() => onMarkResolved(item.id)}
+                  onClick={handleMarkResolved}
+                  disabled={resolving}
                 >
-                  Mark as Claimed/Found
+                  {resolving ? 'Marking...' : 'Mark as Claimed/Found'}
                 </button>
               ) : (
-                <div style={{
-                  marginTop: '20px',
-                  padding: '10px',
-                  backgroundColor: '#f8f9fa',
-                  borderRadius: '5px',
-                  fontSize: '0.9rem',
-                  color: '#7f8c8d',
-                  border: '1px solid #dee2e6'
-                }}>
+                <div className="info-box">
                   {!currentUser ? (
                     "Please log in to manage this item."
                   ) : !isVerified ? (
@@ -71,7 +77,7 @@ const ItemDetail = ({ item, currentUser, onMarkResolved, onBack }) => {
             </>
           )}
           {item.status === 'resolved' && (
-            <div style={{ color: 'green', fontWeight: 'bold', fontSize: '1.2rem' }}>
+            <div className="resolved-badge">
               This item found its way to the owner
             </div>
           )}
