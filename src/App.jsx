@@ -5,7 +5,7 @@ import Board from './components/Board';
 import PostForm from './components/PostForm';
 import ItemDetail from './components/ItemDetail';
 import LoginForm from './components/LoginForm';
-import { fetchItems, updateItemStatus } from './firebase/firestore';
+import { subscribeToItems, updateItemStatus } from './firebase/firestore';
 
 function App() {
   const [screen, setScreen] = useState('board'); // 'board', 'post', 'detail', 'auth'
@@ -13,19 +13,19 @@ function App() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const loadItems = async () => {
-    try {
-      const data = await fetchItems();
-      setItems(data);
-    } catch (error) {
-      console.error("Failed to load items:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadItems();
+    const unsubscribe = subscribeToItems(
+      (data) => {
+        setItems(data);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Failed to load real-time items:", error);
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
   }, []);
 
   const handleSelectItem = (item) => {
@@ -34,21 +34,13 @@ function App() {
   };
 
   const handlePostItem = async () => {
-    // Instead of appending to local state, we re-fetch the list from Firestore
-    // to ensure consistency and that it survives a refresh.
-    await loadItems();
+    // Real-time listener automatically handles updating the list
     setScreen('board');
   };
 
   const handleMarkResolved = async (itemId) => {
     try {
       await updateItemStatus(itemId, { status: 'resolved' });
-
-      setItems(prevItems =>
-        prevItems.map(item =>
-          item.id === itemId ? { ...item, status: 'resolved' } : item
-        )
-      );
 
       setSelectedItem(prevItem =>
         prevItem && prevItem.id === itemId ? { ...prevItem, status: 'resolved' } : prevItem

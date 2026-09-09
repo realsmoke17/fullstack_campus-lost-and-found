@@ -6,7 +6,8 @@ import {
   updateDoc,
   doc,
   query,
-  orderBy
+  orderBy,
+  onSnapshot
 } from "firebase/firestore";
 
 const itemsCollection = collection(db, "items");
@@ -32,8 +33,33 @@ export const fetchItems = async () => {
 };
 
 /**
+ * Subscribes to real-time updates from the Firestore 'items' collection.
+ * @param {Function} onUpdate - Callback function called whenever data changes.
+ * @param {Function} onError - Callback function called when an error occurs.
+ * @returns {Function} Unsubscribe function to stop the listener.
+ */
+export const subscribeToItems = (onUpdate, onError) => {
+  const q = query(itemsCollection, orderBy("date", "desc"));
+
+  return onSnapshot(q,
+    (querySnapshot) => {
+      const items = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      onUpdate(items);
+    },
+    (error) => {
+      console.error("Error in Firestore subscription:", error);
+      if (onError) onError(error);
+    }
+  );
+};
+
+/**
  * Adds a new item document to the Firestore 'items' collection.
  * @param {Object} itemData - The item details (title, category, status, etc.)
+ * @CATCH: we are using addDoc from firebase/firestore
  */
 export const addItem = async (itemData) => {
   try {
