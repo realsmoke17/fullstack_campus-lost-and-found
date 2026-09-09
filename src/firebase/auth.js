@@ -12,14 +12,14 @@ import { auth, db } from "./firebaseConfig";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 
 /**
- * Validates if an email is a valid TUT student email.
- * Format: {studentNumber}@tut4life.ac.za where studentNumber is purely numeric.
- * @param {string} email
+ * Validates if a student number is valid.
+ * Format: purely numeric.
+ * @param {string} studentNumber
  * @returns {boolean}
  */
-const isValidTUTEmail = (email) => {
-  const regex = /^[0-9]+@tut4life\.ac\.za$/i;
-  return regex.test(email);
+const isValidStudentNumber = (studentNumber) => {
+  const regex = /^[0-9]+$/;
+  return regex.test(studentNumber);
 };
 
 /**
@@ -36,18 +36,20 @@ export const initAuthPersistence = async () => {
 
 /**
  * Signs up a new student user.
- * Validates TUT email and username uniqueness, creates auth account,
+ * Validates student number and username uniqueness, creates auth account,
  * sends verification email, and stores the student profile.
- * @param {string} email
+ * @param {string} studentNumber
  * @param {string} password
  * @param {string} username
  * @throws Error if validation fails or Firebase auth fails.
  */
-export const signUp = async (email, password, username) => {
-  // 1. Validate TUT student email format
-  if (!isValidTUTEmail(email)) {
-    throw new Error("Please sign up with your TUT4life student email, e.g. 1234567@tut4life.ac.za");
+export const signUp = async (studentNumber, password, username) => {
+  // 1. Validate TUT student number format
+  if (!isValidStudentNumber(studentNumber)) {
+    throw new Error("Please enter a valid TUT student number (numeric only).");
   }
+
+  const email = `${studentNumber}@tut4life.ac.za`;
 
   // 2. Validate username length
   if (!username || username.length < 3 || username.length > 20) {
@@ -71,10 +73,7 @@ export const signUp = async (email, password, username) => {
     // 5. Send email verification
     await sendEmailVerification(user);
 
-    // 6. Extract student number (local part of the email)
-    const studentNumber = email.split('@')[0];
-
-    // 7. Store student profile in Firestore 'users' collection
+    // 6. Store student profile in Firestore 'users' collection
     await setDoc(doc(db, "users", user.uid), {
       username: username, // Store original case for display
       studentNumber,
@@ -82,7 +81,7 @@ export const signUp = async (email, password, username) => {
       createdAt: serverTimestamp(),
     });
 
-    // 8. Reserve the username to prevent duplicates
+    // 7. Reserve the username to prevent duplicates
     await setDoc(doc(db, "usernames", normalizedUsername), {
       uid: user.uid,
       createdAt: serverTimestamp(),
@@ -97,11 +96,12 @@ export const signUp = async (email, password, username) => {
 
 /**
  * Logs in an existing user.
- * @param {string} email
+ * @param {string} studentNumber
  * @param {string} password
  */
-export const logIn = async (email, password) => {
+export const logIn = async (studentNumber, password) => {
   try {
+    const email = `${studentNumber}@tut4life.ac.za`;
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     return userCredential.user;
   } catch (error) {
@@ -124,10 +124,11 @@ export const logOut = async () => {
 
 /**
  * Sends a password reset email.
- * @param {string} email
+ * @param {string} studentNumber
  */
-export const resetPassword = async (email) => {
+export const resetPassword = async (studentNumber) => {
   try {
+    const email = `${studentNumber}@tut4life.ac.za`;
     await sendPasswordResetEmail(auth, email);
   } catch (error) {
     console.error("Password reset error:", error);

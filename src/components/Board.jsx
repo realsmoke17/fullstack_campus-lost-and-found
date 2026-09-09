@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ItemCard from './ItemCard';
 
-const Board = ({ items, onSelectItem }) => {
+const Board = ({ items }) => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -15,6 +17,10 @@ const Board = ({ items, onSelectItem }) => {
   });
 
   const categories = ['All', 'Electronics', 'Keys', 'Bags', 'ID/Cards', 'Other'];
+
+  const handleSelectItem = (item) => {
+    navigate(`/item/${item.id}`);
+  };
 
   return (
     <div className="container">
@@ -65,7 +71,7 @@ const Board = ({ items, onSelectItem }) => {
       <div className="item-grid">
         {filteredItems.length > 0 ? (
           filteredItems.map(item => (
-            <ItemCard key={item.id} item={item} onClick={onSelectItem} />
+            <ItemCard key={item.id} item={item} onClick={handleSelectItem} />
           ))
         ) : (
           <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: '#7f8c8d' }}>
