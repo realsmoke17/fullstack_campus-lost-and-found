@@ -1,7 +1,10 @@
 import React from 'react';
 
-const ItemDetail = ({ item, onMarkResolved, onBack }) => {
+const ItemDetail = ({ item, currentUser, onMarkResolved, onBack }) => {
   if (!item) return null;
+
+  const isOriginalPoster = currentUser && item.postedByUid === currentUser.uid;
+  const isVerified = currentUser && currentUser.emailVerified;
 
   return (
     <div className="container">
@@ -33,17 +36,39 @@ const ItemDetail = ({ item, onMarkResolved, onBack }) => {
             </div>
             <div className="meta-item">
               <strong>Posted By</strong>
-              {item.poster}
+              {item.postedByStudentNumber || item.poster || 'Unknown Student'}
             </div>
           </div>
 
           {item.status !== 'resolved' && (
-            <button
-              className="btn btn-primary"
-              onClick={() => onMarkResolved(item.id)}
-            >
-              Mark as Claimed/Found
-            </button>
+            <>
+              {isOriginalPoster && isVerified ? (
+                <button
+                  className="btn btn-primary"
+                  onClick={() => onMarkResolved(item.id)}
+                >
+                  Mark as Claimed/Found
+                </button>
+              ) : (
+                <div style={{
+                  marginTop: '20px',
+                  padding: '10px',
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: '5px',
+                  fontSize: '0.9rem',
+                  color: '#7f8c8d',
+                  border: '1px solid #dee2e6'
+                }}>
+                  {!currentUser ? (
+                    "Please log in to manage this item."
+                  ) : !isVerified ? (
+                    "Please verify your account email to mark items as claimed."
+                  ) : (
+                    "Only the original poster can mark this item as claimed."
+                  )}
+                </div>
+              )}
+            </>
           )}
           {item.status === 'resolved' && (
             <div style={{ color: 'green', fontWeight: 'bold', fontSize: '1.2rem' }}>

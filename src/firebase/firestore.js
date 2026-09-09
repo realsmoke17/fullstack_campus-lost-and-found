@@ -5,12 +5,67 @@ import {
   addDoc,
   updateDoc,
   doc,
+  getDoc,
   query,
   orderBy,
-  onSnapshot
+  onSnapshot,
+  increment
 } from "firebase/firestore";
 
 const itemsCollection = collection(db, "items");
+
+/**
+ * Fetches the board aggregate statistics for the public teaser.
+ * Reads from a dedicated metadata document to avoid scanning all items.
+ * @returns {Promise<Object>} - { totalItems, lostCount, foundCount }
+ */
+export const getBoardStats = async () => {
+  try {
+    const statsDoc = await getDoc(doc(db, "metadata", "boardStats"));
+    if (statsDoc.exists()) {
+      return statsDoc.data();
+    }
+    return { totalItems: 0, lostCount: 0, foundCount: 0 };
+  } catch (error) {
+    console.error("Error fetching board stats:", error);
+    return { totalItems: 0, lostCount: 0, foundCount: 0 };
+  }
+};
+
+/**
+ * Internal helper to update the aggregate board statistics.
+ * @param {string} status - The status of the item ('lost' or 'found').
+ * @param {number} change - 1 for addition, -1 for removal.
+ */
+const updateBoardStats = async (status, change) => {
+  try {
+    const statsRef = doc(db, "metadata", "boardStats");
+    await updateDoc(statsRef, {
+      totalItems: increment(change),
+      [`${status}Count`]: increment(change),
+    });
+  } catch (error) {
+    console.error("Error updating board stats:", error);
+  }
+};
+
+/**
+ * Fetches the profile of a student user from the 'users' collection.
+ * @param {string} uid - The Firebase Auth UID of the user.
+ * @returns {Promise<Object|null>} - The user profile or null if not found.
+ */
+export const getUserProfile = async (uid) => {
+  try {
+    const userDoc = await getDoc(doc(db, "users", uid));
+    if (userDoc.exists()) {
+      return { id: userDoc.id, ...userDoc.data() };
+    }
+    return null;
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    throw error;
+  }
+};
 
 /**
  * Fetches all items from the Firestore 'items' collection.
@@ -58,13 +113,23 @@ export const subscribeToItems = (onUpdate, onError) => {
 
 /**
  * Adds a new item document to the Firestore 'items' collection.
+ * Includes the poster's UID and username for ownership tracking.
  * @param {Object} itemData - The item details (title, category, status, etc.)
- * @CATCH: we are using addDoc from firebase/firestore
+ * @param {Object} userProfile - The profile of the user posting the item.
  */
-export const addItem = async (itemData) => {
+export const addItem = async (itemData, userProfile) => {
   try {
-    const docRef = await addDoc(itemsCollection, itemData);
-    return { id: docRef.id, ...itemData };
+    const newItemData = {
+      ...itemData,
+      postedByUid: userProfile.id,
+      postedByUsername: userProfile.username,
+    };
+    const docRef = await addDoc(itemsCollection, newItemData);
+
+    // Update aggregate stats
+    await updateBoardStats(itemData.status, 1);
+
+    return { id: docRef.id, ...newItemData };
   } catch (error) {
     console.error("Error adding item to Firestore:", error);
     throw error;
@@ -80,6 +145,16 @@ export const addItem = async (itemData) => {
 export const updateItemStatus = async (itemId, updates) => {
   try {
     const itemDoc = doc(db, "items", itemId);
+    const currentDoc = await getDoc(itemDoc);
+
+    if (currentDoc.exists() && updates.status === 'resolved') {
+      const oldStatus = currentDoc.data().status;
+      if (oldStatus !== 'resolved') {
+        // Decrement stats when item is resolved
+        await updateBoardStats(oldStatus, -1);
+      }
+    }
+
     await updateDoc(itemDoc, updates);
   } catch (error) {
     console.error("Error updating item status in Firestore:", error);

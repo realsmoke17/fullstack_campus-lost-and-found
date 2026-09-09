@@ -1,16 +1,48 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Match any document in the 'items' collection
-    match /items/{itemId} {
-      // READ: Anyone can view lost/found items
-      allow read: if true;
 
-      // WRITE: Temporary open access for prototype development.
-      // WARNING: This is UNSAFE for production.
-      // Once Firebase Auth is implemented, this should be changed to:
-      // allow write: if request.auth != null;
-      allow write: if true;
+    // Helper: Checks if the user is authenticated and their email is verified
+    function isVerifiedUser() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    // PUBLIC DATA: aggregate board statistics
+    // This is the only part of the database that is publicly readable
+    match /metadata/boardStats {
+      allow read: if true;
+      // Only allow updates via trusted logic (e.g. authenticated users creating items)
+      allow write: if request.auth != null;
+    }
+
+    // USER PROFILES
+    match /users/{userId} {
+      // Users can only read and write their own profile
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // USERNAME LOOKUP (for uniqueness checks)
+    match /usernames/{username} {
+      // Public read allowed to check if a username is taken during signup
+      allow read: if true;
+      // Only authenticated users can reserve a username during signup
+      allow write: if request.auth != null;
+    }
+
+    // ITEMS COLLECTION
+    match /items/{itemId} {
+      // READ: Full item details require a verified student account
+      allow read: if isVerifiedUser();
+
+      // CREATE: Only verified students can post items
+      allow create: if isVerifiedUser();
+
+      // UPDATE: Only the original poster can update their item (e.g. mark as claimed)
+      // We check the postedByUid field in the existing document
+      allow update: if request.auth != null && request.auth.uid == resource.data.postedByUid;
+
+      // DELETE: (Optional) only original poster can delete
+      allow delete: if request.auth != null && request.auth.uid == resource.data.postedByUid;
     }
   }
 }

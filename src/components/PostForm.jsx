@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { addItem } from '../firebase/firestore';
 
-const PostForm = ({ onPostItem, onBack }) => {
+const PostForm = ({ user, userProfile, onPostItem, onBack }) => {
   const useStates = {
     title: '',
     category: 'Electronics',
@@ -9,7 +9,6 @@ const PostForm = ({ onPostItem, onBack }) => {
     description: '',
     location: '',
     date: new Date().toISOString().split('T')[0],
-    poster: 'Current User'
   };
 
   const [formData, setFormData] = useState(useStates);
@@ -18,12 +17,24 @@ const PostForm = ({ onPostItem, onBack }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // 1. Check if user is logged in and email is verified
+    if (!user) {
+      alert("You must be logged in to post an item.");
+      return;
+    }
+
+    if (!user.emailVerified) {
+      alert("Please verify your TUT4life email address before posting items. Check your inbox for the verification link!");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       let photoURL = `https://via.placeholder.com/150?text=No+Image`;
 
-      // 1. Upload photo to Cloudinary if selected
+      // 2. Upload photo to Cloudinary if selected
       if (selectedFile) {
         try {
           const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
@@ -56,15 +67,16 @@ const PostForm = ({ onPostItem, onBack }) => {
         }
       }
 
-      // 2. Prepare item data
+      // 3. Prepare item data
       const newItemData = {
         ...formData,
         image: photoURL,
+        poster: userProfile?.studentNumber || 'Unknown Student',
       };
 
-      // 3. Save to Firestore
+      // 4. Save to Firestore with user profile ownership
       try {
-        await addItem(newItemData);
+        await addItem(newItemData, userProfile);
       } catch (firestoreError) {
         // Failure Case 2: Firestore write fails after successful upload
         console.error("Firestore Error:", firestoreError);
@@ -73,7 +85,7 @@ const PostForm = ({ onPostItem, onBack }) => {
         return;
       }
 
-      // 4. Success: notify parent to refresh and navigate back
+      // 5. Success: notify parent to refresh and navigate back
       onPostItem();
     } catch (generalError) {
       console.error("General Error:", generalError);
