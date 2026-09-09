@@ -1,29 +1,107 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { signUp, logIn, resetPassword } from '../firebase/auth';
+import { getBoardStats } from '../firebase/firestore';
 
-const LoginForm = ({ onLogin }) => {
+const LoginForm = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [stats, setStats] = useState(null);
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    const fetchTeaserStats = async () => {
+      const data = await getBoardStats();
+      setStats(data);
+    };
+    fetchTeaserStats();
+  }, []);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Mock authentication
-    onLogin();
+    setError('');
+    setLoading(true);
+
+    try {
+      if (isLogin) {
+        await logIn(email, password);
+      } else {
+        await signUp(email, password, username);
+        alert('Account created! Please check your TUT4life email to verify your account.');
+      }
+
+      // Respect return-to path or default to board
+      const destination = location.state?.from || '/board';
+      navigate(destination, { replace: true });
+    } catch (err) {
+      console.error("Auth error:", err);
+      setError(err.message || 'An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    if (!email) {
+      setError('Please enter your email address first.');
+      return;
+    }
+    setLoading(true);
+    try {
+      await resetPassword(email);
+      alert('Password reset email sent! Please check your inbox.');
+    } catch (err) {
+      setError('Failed to send reset email. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="container">
       <div className="auth-container">
+        {/* Public Teaser */}
+        {stats && (
+          <div style={{
+            textAlign: 'center',
+            padding: '15px',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '10px',
+            marginBottom: '30px',
+            border: '1px dashed #cbd5e0',
+            color: '#4a5568'
+          }}>
+            <h4 style={{ margin: '0 0 5px 0', color: '#2d3748' }}>Campus Activity</h4>
+            <p style={{ margin: 0, fontSize: '0.9rem' }}>
+              <strong>{stats.totalItems}</strong> items posted —
+              <span style={{ color: '#e53e3e' }}> {stats.lostCount} lost</span>,
+              <span style={{ color: '#38a169' }}> {stats.foundCount} found</span>
+            </p>
+          </div>
+        )}
+
         <div className="auth-tabs">
           <button
             className={`tab-btn ${isLogin ? 'active' : ''}`}
-            onClick={() => setIsLogin(true)}
+            onClick={() => {
+              setIsLogin(true);
+              setError('');
+            }}
           >
             Log In
           </button>
           <button
             className={`tab-btn ${!isLogin ? 'active' : ''}`}
-            onClick={() => setIsLogin(false)}
+            onClick={() => {
+              setIsLogin(false);
+              setError('');
+            }}
           >
             Sign Up
           </button>
@@ -34,7 +112,35 @@ const LoginForm = ({ onLogin }) => {
           {isLogin ? 'Please enter your details to continue.' : 'Join the community and help find lost items!'}
         </p>
 
+        {error && (
+          <div style={{
+            backgroundColor: '#fdecea',
+            color: '#d32f2f',
+            padding: '10px',
+            borderRadius: '5px',
+            marginBottom: '20px',
+            fontSize: '0.9rem',
+            border: '1px solid #ef9a9a'
+          }}>
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
+          {!isLogin && (
+            <div className="form-group" style={{ textAlign: 'left' }}>
+              <label>Username</label>
+              <input
+                type="text"
+                className="form-input"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Choose a unique username"
+              />
+            </div>
+          )}
+
           <div className="form-group" style={{ textAlign: 'left' }}>
             <label>Email Address</label>
             <input
@@ -43,7 +149,7 @@ const LoginForm = ({ onLogin }) => {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="student@university.edu"
+              placeholder="student@tut4life.ac.za"
             />
           </div>
 
@@ -59,8 +165,32 @@ const LoginForm = ({ onLogin }) => {
             />
           </div>
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '20px' }}>
-            {isLogin ? 'Log In' : 'Create Account'}
+          {isLogin && (
+            <div style={{ textAlign: 'right', marginBottom: '20px' }}>
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#3498db',
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                  textDecoration: 'underline'
+                }}
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className="btn btn-primary"
+            style={{ width: '100%', marginTop: '20px' }}
+            disabled={loading}
+          >
+            {loading ? 'Processing...' : (isLogin ? 'Log In' : 'Create Account')}
           </button>
         </form>
       </div>
