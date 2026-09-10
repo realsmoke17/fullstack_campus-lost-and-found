@@ -55,7 +55,7 @@ const MyItems = () => {
       <h1>My Items</h1>
       {myItems.length === 0 ? (
         <div className="my-items-empty">
-          <div className="emoji-icon">📦</div>
+          <div className="emoji-icon"></div>
           <p>You haven't posted any items yet.</p>
           <button className="btn btn-primary" onClick={() => navigate("/post")}>
             Post an Item
